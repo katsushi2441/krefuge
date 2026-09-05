@@ -1,0 +1,9 @@
+.venv/
+outputs/
+__pycache__/
+*.pyc
+
+# 取り込み元データと生成物。scripts/load_shelters.py で再取得・再生成できる
+data/zenkoku/
+data/*.zip
+data/krefuge.db
