@@ -27,6 +27,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = os.path.join(ROOT, "data", "krefuge.db")
 GSI = "https://msearch.gsi.go.jp/address-search/AddressSearch"
+# 標高API。津波・高潮では「その場所が何メートルか」が避難先の判断に直結する
+GSI_ELEV = "https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php"
 VALHALLA = os.environ.get("KREFUGE_VALHALLA", "http://127.0.0.1:18359")
 
 STALE_YEARS = 5      # これより古い市町村データには注意書きを出す
@@ -80,6 +82,22 @@ def geocode(q: str):
     it = max(items, key=score)
     lon, lat = it["geometry"]["coordinates"]
     return {"lat": lat, "lon": lon, "label": it.get("properties", {}).get("title", q)}
+
+
+def elevation(lat, lon):
+    """国土地理院の標高API。取れなければ None を返し、画面には出さない。
+    hsrc は測定のもと(5mレーザー等)で、精度の根拠として一緒に出す。"""
+    try:
+        r = requests.get(GSI_ELEV, params={"lon": lon, "lat": lat, "outtype": "JSON"},
+                         timeout=8, headers={"User-Agent": "krefuge/1.0 (kurage.exbridge.jp)"})
+        r.raise_for_status()
+        d = r.json()
+        v = d.get("elevation")
+        if v in (None, "-----"):
+            return None
+        return {"m": round(float(v), 1), "source": d.get("hsrc") or ""}
+    except Exception:
+        return None
 
 
 def haversine(lat1, lon1, lat2, lon2) -> float:
@@ -201,8 +219,10 @@ def check(request: Request, q: str, hazard: str = ""):
             "distance_m": round(dist),
             "hazards": [label for k, label, _ in HAZARDS if r[k]],
         })
+    elev = elevation(g["lat"], g["lon"])
     return JSONResponse({
         "query": q, "resolved": g["label"], "lat": g["lat"], "lon": g["lon"],
+        "elevation": elev,
         "hazard": hazard,
         "hazard_label": next((l for k, l, _ in HAZARDS if k == hazard), "指定なし"),
         "shelters": out,
@@ -235,8 +255,8 @@ def healthz():
 
 PAGE = """<!doctype html><html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kurage 避難所マップ | 住所から避難所まで徒歩何分かを調べる（災害種別対応・全国11万件）</title>
-<meta name="description" content="住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを表示します。土砂災害・洪水・地震・津波など災害種別ごとに『その災害で使える避難所』を絞り込めます。全国115,447件を収録。判定に使ったデータの時点も市町村単位で表示します。">
+<title>Kurage 避難所マップ | 住所から避難所まで徒歩何分・海抜（標高）も表示（全国11万件）</title>
+<meta name="description" content="住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを表示します。その地点の海抜（標高）も国土地理院のデータで表示するので、津波・高潮のときに避難先がここより高いかを判断できます。土砂災害・洪水・地震・津波など災害種別ごとに絞り込み。全国115,447件収録。">
 <link rel="canonical" href="https://kurage.exbridge.jp/krefuge.php/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Kurage 避難所マップ｜避難所まで徒歩何分">
@@ -286,7 +306,7 @@ button:disabled{opacity:.5}
 .faq dd{margin:5px 0 0;padding-left:16px;border-left:3px solid #e5ebf1;color:#37485a}
 </style></head><body><div class="wrap">
 <h1><a href="./">Kurage 避難所マップ</a></h1>
-<p class="lead">住所を入れると、最寄りの<strong>指定緊急避難場所</strong>まで道路をたどって<strong>徒歩何分</strong>かを表示します。
+<p class="lead">住所を入れると、最寄りの<strong>指定緊急避難場所</strong>まで道路をたどって<strong>徒歩何分</strong>かを表示します。その地点の<strong>海抜（標高）</strong>も一緒に出ます。
 指定緊急避難場所は災害種別ごとに指定されているため、<strong>「その災害で使える避難所」</strong>に絞り込めます。
 全国115,447件を収録。判定に使ったデータの時点も市町村単位で表示します。</p>
 <div class="card">
@@ -337,6 +357,11 @@ button:disabled{opacity:.5}
 <h2>徒歩時間はどう計算しているか</h2>
 <p>直線距離ではなく、<strong>道路網をたどった歩行経路</strong>で計算しています。川や線路で迂回が必要な場所では、直線距離との差が大きくなります。</p>
 <p>ただし住所から求まる座標は番地ではなく<strong>町丁目のおおよその位置</strong>なので、表示される分数は目安です。実際の出発点によって前後します。</p>
+<h2>海抜（標高）も一緒に表示します</h2>
+<p>判定すると、その地点の<strong>海抜（標高）</strong>を国土地理院のデータで表示します。
+測定のもと（5mレーザー測量など）も併記するので、数字の精度の根拠が分かります。</p>
+<p>なぜ避難所と一緒に出すかというと、<strong>津波と高潮では「避難先が今いる場所より高いか」が判断の基準</strong>だからです。
+近くても低い場所へ逃げては意味がありません。たとえば名古屋駅は海抜2.3mです。</p>
 <h2>データの時点について</h2>
 <p>指定緊急避難場所のデータは<strong>市町村ごとに更新時期が異なります</strong>。本サービスは判定結果に、その市町村のデータがいつ更新されたものかを併記します。
 時点が確認できないデータでは判定を行いません。黙って古いデータで答えるほうが危険だからです。</p>
@@ -353,7 +378,7 @@ button:disabled{opacity:.5}
 </section>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
-住所検索: 国土地理院 地名検索API</p>
+住所検索・標高: 国土地理院 地名検索API／標高API</p>
 </div>
 <script>
 var f=document.getElementById('f'),q=document.getElementById('q'),h=document.getElementById('h'),
@@ -374,6 +399,11 @@ function run(){
          o+='<span class="tag'+(t===d.hazard_label?' on':'')+'">'+esc(t)+'</span>';});
        o+='</div></div>';
      });
+     if(d.elevation){
+       o+='<div class="meta"><strong>この地点の海抜（標高）: '+d.elevation.m+'m</strong>'
+         +(d.elevation.source?'　<span style="font-weight:400">測定: '+esc(d.elevation.source)+'（国土地理院）</span>':'')
+         +'<br><span style="font-weight:400">津波・高潮では、避難先がここより高いかどうかが判断の基準になります。</span></div>';
+     }
      o+='<div class="meta">この判定に使ったデータの時点: <strong>'+esc(d.data_vintage||'不明')+'</strong>'
        +(d.vintage_scope?'（'+esc(d.vintage_scope)+'）':'')
        +(d.data_age_years!=null?'　約'+d.data_age_years+'年前':'')
