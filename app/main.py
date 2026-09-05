@@ -279,6 +279,9 @@ button:disabled{opacity:.5}
 .t2 th,.t2 td{border:1px solid #e5ebf1;padding:9px 11px;text-align:left;vertical-align:top}
 .t2 th{background:#f4f8fb;width:34%;font-weight:700}
 .tw{overflow-x:auto}
+.pv{margin:16px 0}
+.pv video{width:100%;height:auto;border-radius:12px;border:1px solid #e5ebf1;background:#000;display:block}
+.note-sm{font-size:12.5px;color:#7d8a97;margin:5px 0 0}
 .faq dt{font-weight:800;margin-top:14px;font-size:15px}
 .faq dd{margin:5px 0 0;padding-left:16px;border-left:3px solid #e5ebf1;color:#37485a}
 </style></head><body><div class="wrap">
@@ -303,6 +306,12 @@ button:disabled{opacity:.5}
     <button id="b">調べる</button>
   </form>
   <div class="res" id="r"></div>
+</div>
+<div class="pv">
+<video src="https://kurage.exbridge.jp/pv/krefuge-pv-30s.mp4"
+       poster="https://kurage.exbridge.jp/pv/krefuge-pv-poster.jpg"
+       controls playsinline preload="none" width="1920" height="1080"></video>
+<p class="note-sm">冒頭8秒の実写映像は MiniMax H3（セルフホスト）で生成しています。</p>
 </div>
 <section class="doc">
 <h2>「指定緊急避難場所」と「指定避難所」は違います</h2>
