@@ -376,6 +376,7 @@ button:disabled{opacity:.5}
 <dt>自社のサーバーで動かせますか。</dt><dd>はい。買い切り版を用意しています。住所を外部に送りたくない場合や、自社の拠点データと組み合わせたい場合にご利用ください。</dd>
 </dl>
 </section>
+<p style="font-size:12.5px;color:#7d8a97;margin-top:10px">議員・政党事務所の方へ: このページを事務所の名前で運用できます → <a href="/bousai-giin.html">地域防災情報サービス</a></p>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
 住所検索・標高: 国土地理院 地名検索API／標高API</p>
