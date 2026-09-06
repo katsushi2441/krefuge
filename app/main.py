@@ -14,8 +14,10 @@ khazard(土砂災害ハザードマップ)の続編。設計原則を引き継�
 
 出典: 国土地理院「指定緊急避難場所データ」(CC BY 4.0)
 """
+import json
 import math
 import os
+import re
 import sqlite3
 import time
 from collections import defaultdict
@@ -377,6 +379,7 @@ button:disabled{opacity:.5}
 </dl>
 </section>
 <p style="font-size:12.5px;color:#7d8a97;margin-top:10px">議員・政党事務所の方へ: このページを事務所の名前で運用できます → <a href="/bousai-giin.html">地域防災情報サービス</a></p>
+<p style="font-size:13px;margin-top:14px">主要都市から地域ページへ入る: <a href="area/kanagawa-yokohama">横浜</a>・<a href="area/aichi-nagoya">名古屋</a>・<a href="area/osaka-osaka">大阪</a>・<a href="area/hyogo-kobe">神戸</a>・<a href="area/fukuoka-fukuoka">福岡</a>・<a href="area/">地域一覧</a></p>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
 住所検索・標高: 国土地理院 地名検索API／標高API</p>
@@ -430,3 +433,104 @@ f.addEventListener('submit',function(e){e.preventDefault();run();});
 @app.get("/", response_class=HTMLResponse)
 def index():
     return HTMLResponse(PAGE)
+
+
+# ---- 地域ページ（「◯◯市 避難所」等の無競合ロングテールを取る） ----
+# 2026-09-06 実測: 横浜市避難所210・避難所横浜市210・大阪避難所40・名古屋避難所20、
+# いずれも競合指数0。需要は小さいが無競合なので都市名を主題にした個別ページで拾う。
+# CSS/JSは本体PAGEから取り出して共有。/area/配下なので相対fetchを ../ に補正。
+_STYLE = re.search(r"<style>.*?</style>", PAGE, re.S).group(0)
+_SCRIPT = re.search(r"<script>(?:(?!application/ld).)*?</script>", PAGE, re.S).group(0).replace("'api/check", "'../api/check")
+
+AREAS = [
+    ("kanagawa-yokohama", "横浜市", "神奈川県横浜市中区海岸通"),
+    ("aichi-nagoya", "名古屋市", "愛知県名古屋市中村区名駅"),
+    ("osaka-osaka", "大阪市", "大阪府大阪市北区梅田"),
+    ("hyogo-kobe", "神戸市", "兵庫県神戸市中央区三宮町"),
+    ("fukuoka-fukuoka", "福岡市", "福岡県福岡市博多区博多駅前"),
+    ("hokkaido-sapporo", "札幌市", "北海道札幌市中央区大通西"),
+    ("kyoto-kyoto", "京都市", "京都府京都市中京区"),
+    ("hiroshima-hiroshima", "広島市", "広島県広島市中区紙屋町"),
+    ("miyagi-sendai", "仙台市", "宮城県仙台市青葉区中央"),
+    ("kochi-kochi", "高知市", "高知県高知市種崎"),
+]
+AREA_BY_SLUG = {a[0]: a for a in AREAS}
+
+
+def _area_head(city, slug, desc):
+    url = "https://kurage.exbridge.jp/krefuge.php/area/" + slug
+    title = city + "の避難所マップ｜住所から最寄りの避難所まで徒歩何分かを調べる | Kurage"
+    ga = ('<script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>'
+          '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}'
+          "gtag('js',new Date());gtag('config','G-BP0650KDFR');</script>")
+    bc = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Kurage 避難所マップ",
+         "item": "https://kurage.exbridge.jp/krefuge.php/"},
+        {"@type": "ListItem", "position": 2, "name": city, "item": url}]}, ensure_ascii=False)
+    faq = json.dumps({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+        {"@type": "Question", "name": city + "の避難所はどこで調べられますか？",
+         "acceptedAnswer": {"@type": "Answer", "text": "このページで" + city + "の住所を入れると、最寄りの指定緊急避難場所まで徒歩何分かが表示されます。災害種別（土砂・洪水・地震・津波など）で絞り込めます。国土地理院のデータにもとづく参考情報です。"}}]}, ensure_ascii=False)
+    return ('<!doctype html><html lang="ja"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            "<title>" + title + "</title>"
+            '<meta name="description" content="' + desc + '">'
+            '<link rel="canonical" href="' + url + '">'
+            '<meta property="og:type" content="website">'
+            '<meta property="og:title" content="' + city + 'の避難所マップ｜Kurage">'
+            '<meta property="og:description" content="' + desc + '">'
+            '<meta property="og:url" content="' + url + '">'
+            '<meta property="og:image" content="https://kurage.exbridge.jp/pv/krefuge-pv-poster.jpg">'
+            '<meta name="twitter:card" content="summary_large_image">'
+            '<script type="application/ld+json">' + bc + '</script>'
+            '<script type="application/ld+json">' + faq + '</script>' + ga)
+
+
+@app.get("/area/{slug}", response_class=HTMLResponse)
+def area(slug: str):
+    a = AREA_BY_SLUG.get(slug)
+    if not a:
+        raise HTTPException(404, "地域が見つかりません")
+    _, city, example = a
+    exq = requests.utils.quote(example)
+    desc = (city + "の住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを表示します。"
+            "災害種別で絞り込み可能。全国115,447件を収録。無料・登録不要。")
+    body = (
+        '<h1><a href="/krefuge.php/">' + city + "の避難所マップ</a></h1>"
+        '<p class="lead">' + city + "の住所を入れると、最寄りの<strong>指定緊急避難場所</strong>まで"
+        "道路をたどって<strong>徒歩何分</strong>かを表示します。指定緊急避難場所は災害種別ごとの指定なので、"
+        "<strong>その災害で使える避難所</strong>に絞り込めます。全国115,447件を収録。</p>"
+        '<div class="card"><form id="f">'
+        '<input id="q" placeholder="例: ' + example + '" value="' + example + '" autocomplete="off">'
+        '<select id="h"><option value="">災害種別: 指定なし</option>'
+        '<option value="landslid">土砂災害</option><option value="flood">洪水</option>'
+        '<option value="quake">地震</option><option value="tsunami">津波</option>'
+        '<option value="surge">高潮</option><option value="inlflood">内水氾濫</option>'
+        '<option value="bigfire">大規模火事</option><option value="volcano">火山現象</option></select>'
+        '<button id="b">調べる</button></form><div class="res" id="r"></div></div>'
+        '<section class="doc">'
+        "<h2>" + city + "で使える避難所を探す</h2>"
+        "<p>" + city + "の住所を入れて災害種別を選ぶと、その災害に対して指定されている避難所だけを、"
+        "近い順に道路網でたどって表示します。地震で使える場所が洪水では使えないことがあるためです。</p>"
+        "<h2>あわせて確認したい方へ</h2>"
+        '<p>' + city + "の土砂災害警戒区域は "
+        '<a href="/khazard.php/?q=' + exq + '">土砂災害ハザードマップ</a>、津波の浸水想定は '
+        '<a href="/ktsunami.php/area/' + slug + '">津波浸水想定マップ</a> で調べられます。'
+        '全国版は <a href="/krefuge.php/">Kurage 避難所マップ</a> です。</p></section>'
+        '<p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成'
+        "／住所検索・経路: 国土地理院 地名検索API／Valhalla</p>")
+    html = _area_head(city, slug, desc) + _STYLE + '</head><body><div class="wrap">' + body + _SCRIPT + "</body></html>"
+    return HTMLResponse(html)
+
+
+@app.get("/area", response_class=HTMLResponse)
+@app.get("/area/", response_class=HTMLResponse)
+def area_index():
+    links = "".join('<li><a href="/krefuge.php/area/' + s + '">' + c + "の避難所マップ</a></li>"
+                    for s, c, _ in AREAS)
+    desc = "主要都市ごとの避難所マップの入口です。住所を入れると最寄りの避難所まで徒歩何分かが分かります。"
+    html = (_area_head("地域一覧", "index", desc) + _STYLE
+            + '</head><body><div class="wrap"><h1>地域から避難所を探す</h1>'
+            '<p class="lead">主要都市ごとの入口です。全国版は '
+            '<a href="/krefuge.php/">Kurage 避難所マップ</a> をどうぞ。</p>'
+            '<ul style="font-size:15px;line-height:2.2">' + links + "</ul></div></body></html>")
+    return HTMLResponse(html)
