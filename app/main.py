@@ -26,6 +26,8 @@ import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from app import nagoya_live
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = os.path.join(ROOT, "data", "krefuge.db")
 GSI = "https://msearch.gsi.go.jp/address-search/AddressSearch"
@@ -222,8 +224,18 @@ def check(request: Request, q: str, hazard: str = ""):
             "hazards": [label for k, label, _ in HAZARDS if r[k]],
         })
     elev = elevation(g["lat"], g["lon"])
+    live = None
+    if nagoya_live.AREA in (g["label"] or ""):
+        # 名古屋市: 帰宅困難者向け退避施設の「いまの開設状況」（市の公開 Feature Service）。指定緊急避難場所とは別物として返す
+        d = nagoya_live.fetch()
+        live = {"area": nagoya_live.AREA, "status": d.get("status"), "updated_at": d.get("updated_at"), "fetched_at": d.get("fetched_at"),
+                "source": d.get("source"), "source_url": d.get("source_url"), "summary": nagoya_live.summary(d),
+                "facilities": nagoya_live.nearest(d, g["lat"], g["lon"], 3) if d.get("facilities") else [],
+                "what": "帰宅困難者が最大24時間滞在する退避施設。命を守るために逃げ込む指定緊急避難場所とは別のものです。",
+                "not_used": "市の指定避難所の開設状況レイヤは2024-10-29以降更新されておらず（2026-09-08の警戒レベル5発令中も全件未開設）、更新されていない値で「未開設」と出すのは危険なため本サービスでは表示しません。"}
     return JSONResponse({
         "query": q, "resolved": g["label"], "lat": g["lat"], "lon": g["lon"],
+        "nagoya_live": live,
         "elevation": elev,
         "hazard": hazard,
         "hazard_label": next((l for k, l, _ in HAZARDS if k == hazard), "指定なし"),
@@ -408,6 +420,12 @@ function run(){
          +(d.elevation.source?'　<span style="font-weight:400">測定: '+esc(d.elevation.source)+'（国土地理院）</span>':'')
          +'<br><span style="font-weight:400">津波・高潮では、避難先がここより高いかどうかが判断の基準になります。</span></div>';
      }
+     if(d.nagoya_live){var L=d.nagoya_live;
+       o+='<div class="meta"><strong>名古屋市の退避施設（帰宅困難者向け）— いまの開設状況</strong>';
+       if(L.status==='unavailable'){o+='<br><span style="font-weight:400">市の公開データを取得できませんでした。開設が無いという意味ではありません。<a href="'+esc(L.source_url)+'" rel="noopener">帰宅困難者支援サイト</a>で確認してください。</span>';}
+       else{o+='<br><span style="font-weight:400">市内'+L.summary.total+'施設のうち開設中 '+L.summary.opened+'（市のデータ更新 '+esc(L.updated_at||'不明')+' / '+esc(L.fetched_at)+' 取得'+(L.status==='stale'?'・前回値':'')+'）</span>';
+         L.facilities.forEach(function(x){o+='<br><span style="font-weight:400">・'+esc(x.name)+'（約'+x.distance_m+'m・'+esc(x.district)+'）: <strong>'+esc(x.status)+'</strong>'+(x.space?' '+esc(x.space):'')+(x.note?'／'+esc(x.note):'')+'</span>';});}
+       o+='<br><span style="font-weight:400;font-size:12px">'+esc(L.what)+' 出典: <a href="'+esc(L.source_url)+'" rel="noopener">'+esc(L.source)+'</a></span></div>';}
      o+='<div class="meta">この判定に使ったデータの時点: <strong>'+esc(d.data_vintage||'不明')+'</strong>'
        +(d.vintage_scope?'（'+esc(d.vintage_scope)+'）':'')
        +(d.data_age_years!=null?'　約'+d.data_age_years+'年前':'')
