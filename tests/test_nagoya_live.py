@@ -27,6 +27,7 @@ def test_nearest_from_nagoya_station():
     near = nagoya_live.nearest(d, 35.1709, 136.8815, 3)
     assert len(near) == 3 and near[0]['distance_m'] < 600
     assert all('status' in x and x['status'] for x in near)
+    assert any(x['status'].startswith('開設') for x in near) and near[-1].get('nearest_open') in (True, None)   # 未開設だけで終わらない
 
 
 def test_unavailable_shape():

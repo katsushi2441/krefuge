@@ -83,11 +83,17 @@ def fetch(force: bool = False) -> dict:
 
 
 def nearest(data: dict, lat: float, lon: float, n: int = 3) -> list:
+    """最寄り n 件。その中に開設中が無ければ、最寄りの開設中を1件足す（未開設だけ並べて終わらない）。"""
     rows = []
     for f in data.get('facilities', []):
         rows.append(dict(f, distance_m=round(_haversine(lat, lon, f['lat'], f['lon']))))
     rows.sort(key=lambda x: x['distance_m'])
-    return rows[:n]
+    out = rows[:n]
+    if not any(x['status'].startswith('開設') for x in out):
+        op = next((x for x in rows[n:] if x['status'].startswith('開設')), None)
+        if op:
+            out.append(dict(op, nearest_open=True))
+    return out
 
 
 def summary(data: dict) -> dict:

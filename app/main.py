@@ -424,7 +424,7 @@ function run(){
        o+='<div class="meta"><strong>名古屋市の退避施設（帰宅困難者向け）— いまの開設状況</strong>';
        if(L.status==='unavailable'){o+='<br><span style="font-weight:400">市の公開データを取得できませんでした。開設が無いという意味ではありません。<a href="'+esc(L.source_url)+'" rel="noopener">帰宅困難者支援サイト</a>で確認してください。</span>';}
        else{o+='<br><span style="font-weight:400">市内'+L.summary.total+'施設のうち開設中 '+L.summary.opened+'（市のデータ更新 '+esc(L.updated_at||'不明')+' / '+esc(L.fetched_at)+' 取得'+(L.status==='stale'?'・前回値':'')+'）</span>';
-         L.facilities.forEach(function(x){o+='<br><span style="font-weight:400">・'+esc(x.name)+'（約'+x.distance_m+'m・'+esc(x.district)+'）: <strong>'+esc(x.status)+'</strong>'+(x.space?' '+esc(x.space):'')+(x.note?'／'+esc(x.note):'')+'</span>';});}
+         L.facilities.forEach(function(x){o+='<br><span style="font-weight:400">・'+(x.nearest_open?'【最寄りの開設中】':'')+esc(x.name)+'（約'+x.distance_m+'m・'+esc(x.district)+'）: <strong>'+esc(x.status)+'</strong>'+(x.space?' '+esc(x.space):'')+(x.note?'／'+esc(x.note):'')+'</span>';});}
        o+='<br><span style="font-weight:400;font-size:12px">'+esc(L.what)+' 出典: <a href="'+esc(L.source_url)+'" rel="noopener">'+esc(L.source)+'</a></span></div>';}
      o+='<div class="meta">この判定に使ったデータの時点: <strong>'+esc(d.data_vintage||'不明')+'</strong>'
        +(d.vintage_scope?'（'+esc(d.vintage_scope)+'）':'')
