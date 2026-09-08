@@ -390,7 +390,7 @@ button:disabled{opacity:.5}
 <dt>自社のサーバーで動かせますか。</dt><dd>はい。買い切り版を用意しています。住所を外部に送りたくない場合や、自社の拠点データと組み合わせたい場合にご利用ください。</dd>
 </dl>
 </section>
-<p style="font-size:12.5px;color:#7d8a97;margin-top:10px">議員・政党事務所の方へ: このページを事務所の名前で運用できます → <a href="/bousai-giin.html">地域防災情報サービス</a></p>
+<p style="font-size:13px;margin-top:10px"><strong>このシステムを事務所・自治体・会社の名前で公開する:</strong> <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&ref=krefuge" target="_blank" rel="noopener">買い切り 55,000円（税込）・ソースコード同梱（Kurage App Store）</a>／議員・政党事務所の方は <a href="/bousai-giin.html">地域防災情報サービス</a>、名古屋市内は <a href="https://exbridge.jp/ai-it-komon.html?ref=krefuge" target="_blank" rel="noopener">AI-IT顧問契約</a>（キャンペーン中は商品代金無料）</p>
 <p style="font-size:13px;margin-top:14px">主要都市から地域ページへ入る: <a href="area/kanagawa-yokohama">横浜</a>・<a href="area/aichi-nagoya">名古屋</a>・<a href="area/osaka-osaka">大阪</a>・<a href="area/hyogo-kobe">神戸</a>・<a href="area/fukuoka-fukuoka">福岡</a>・<a href="area/">地域一覧</a></p>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
