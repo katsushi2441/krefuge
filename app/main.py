@@ -23,8 +23,9 @@ import time
 from collections import defaultdict
 
 import requests
+from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from app import nagoya_live
 
@@ -53,6 +54,7 @@ HAZARDS = [
 HAZARD_KEYS = {k for k, _, _ in HAZARDS}
 
 app = FastAPI(title="Kurage 避難所マップ")
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "static")), name="static")
 _hits = defaultdict(list)
 
 
@@ -276,7 +278,11 @@ PAGE = """<!doctype html><html lang="ja"><head>
 <meta property="og:title" content="Kurage 避難所マップ｜避難所まで徒歩何分">
 <meta property="og:description" content="住所から、その災害で使える避難所までの徒歩時間を表示。全国115,447件・データ時点つき。">
 <meta property="og:url" content="https://kurage.exbridge.jp/krefuge.php/">
+<meta property="og:site_name" content="Kurage 避難所マップ">
+<meta property="og:image" content="https://kurage.exbridge.jp/krefuge.php/static/ogp.png">
+<meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">__TOP_JSONLD__</script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#fff;color:#12202f;font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;line-height:1.75}
@@ -448,9 +454,113 @@ f.addEventListener('submit',function(e){e.preventDefault();run();});
 </body></html>"""
 
 
+BASE = "https://kurage.exbridge.jp/krefuge.php"
+
+FAQ = [
+    ("避難所と避難場所は何が違うのですか",
+     "指定緊急避難場所は、災害の危険から命を守るために緊急に逃げ込む場所です。指定避難所は、家に戻れなく"
+     "なった人がその後しばらく滞在する施設です。このサイトが返すのは前者（指定緊急避難場所）で、"
+     "「いま逃げる先」を探すためのものです。"),
+    ("災害種別で結果が変わるのはなぜですか",
+     "同じ施設でも、洪水では使えるが土砂災害では使えない、という指定のされ方をします。災害種別を選ぶと、"
+     "その災害で使える指定になっている施設だけを表示します。種別を無視して最寄りを出すと、その災害では"
+     "避難できない場所へ誘導してしまいます。"),
+    ("徒歩時間はどう計算していますか",
+     "直線距離ではなく道路をたどった経路の距離から算出します。津波・高潮では「避難先が今いる場所より高いか」"
+     "が重要なので、国土地理院の標高データで海抜も表示します。"),
+    ("データはいつ時点のものですか",
+     "国土地理院の指定緊急避難場所データにもとづき、判定結果にデータ時点を添えます。自治体ごとに更新時期が"
+     "違うため、その自治体分の更新時点が分かる場合はそれを表示し、古い場合は注意書きを出します。"),
+]
+
+
+def _top_jsonld() -> str:
+    graph = [{
+        "@type": "WebSite",
+        "@id": BASE + "/#website",
+        "name": "Kurage 避難所マップ",
+        "url": BASE + "/",
+        "inLanguage": "ja",
+        "publisher": {"@type": "Organization", "name": "株式会社エクスブリッジ", "url": "https://exbridge.jp/"},
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {"@type": "EntryPoint", "urlTemplate": BASE + "/?q={search_term_string}"},
+            "query-input": "required name=search_term_string",
+        },
+    }, {
+        "@type": "FAQPage",
+        "mainEntity": [{"@type": "Question", "name": q,
+                        "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in FAQ],
+    }]
+    return json.dumps({"@context": "https://schema.org", "@graph": graph}, ensure_ascii=False)
+
+
+PAGE = PAGE.replace("__TOP_JSONLD__", _top_jsonld())
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return HTMLResponse(PAGE)
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots():
+    return f"User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: {BASE}/sitemap.xml\n"
+
+
+@app.get("/sitemap.xml")
+def sitemap():
+    urls = ["/", "/area/"] + [f"/area/{slug}" for slug, _, _ in AREAS]
+    body = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + "".join(f"<url><loc>{BASE}{u}</loc></url>" for u in urls) + "</urlset>")
+    return PlainTextResponse(body, media_type="application/xml")
+
+
+@app.get("/llms.txt", response_class=PlainTextResponse)
+def llms():
+    """AI検索（ChatGPT/Claude/Perplexity 等）向けの要約。何を答えられる道具かを最初に書く。"""
+    c = conn()
+    try:
+        n = c.execute("SELECT COUNT(*) FROM shelters").fetchone()[0]
+        v = c.execute("SELECT data_vintage FROM datasets LIMIT 1").fetchone()[0]
+    finally:
+        c.close()
+    kinds = "、".join(f"{label}（{key}）" for key, label, _ in HAZARDS)
+    areas = "\n".join(f"- {city}: {BASE}/area/{slug}" for slug, city, _ in AREAS)
+    return f"""# Kurage 避難所マップ
+
+> 住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを返すサイト。
+> その地点の海抜（標高）も表示するので、津波・高潮のときに避難先が今いる場所より高いかを判断できる。
+> 災害種別ごとに「その災害で使える指定になっている施設」だけを表示する。
+
+## 避難場所と避難所の違い（よく混同される）
+- 指定緊急避難場所: 命を守るために緊急に逃げ込む場所。このサイトが返すのはこちら。
+- 指定避難所: 家に戻れなくなった人がその後しばらく滞在する施設。
+
+## 収録
+- 施設数: {n:,}（全国）
+- データ時点: {v}
+- 出典: 国土地理院 指定緊急避難場所データ、標高は国土地理院の標高API
+- 災害種別: {kinds}
+
+## 使い方
+- 住所で調べる: {BASE}/?q=<住所>
+- 地域一覧: {BASE}/area/
+- API: {BASE}/api/check?q=<住所>
+
+## 地域ページ
+{areas}
+
+## 注意
+判定は住所から求めた代表点による参考情報で、公的な証明ではない。
+避難のときは、自治体が出している避難情報と、その時点で実際に開設されている避難所を確認すること。
+
+## 関連（同じ運営の防災ツール）
+- 洪水・内水ハザードマップ: https://kurage.exbridge.jp/kflood.php/
+- 災害危険区域マップ: https://kurage.exbridge.jp/kriskarea.php/
+
+運営: 株式会社エクスブリッジ https://exbridge.jp/
+"""
 
 
 # ---- 地域ページ（「◯◯市 避難所」等の無競合ロングテールを取る） ----
@@ -497,7 +607,9 @@ def _area_head(city, slug, desc):
             '<meta property="og:title" content="' + city + 'の避難所マップ｜Kurage">'
             '<meta property="og:description" content="' + desc + '">'
             '<meta property="og:url" content="' + url + '">'
-            '<meta property="og:image" content="https://kurage.exbridge.jp/pv/krefuge-pv-poster.jpg">'
+            '<meta property="og:site_name" content="Kurage 避難所マップ">'
+            '<meta property="og:image" content="https://kurage.exbridge.jp/krefuge.php/static/ogp.png">'
+            '<meta property="og:locale" content="ja_JP">'
             '<meta name="twitter:card" content="summary_large_image">'
             '<script type="application/ld+json">' + bc + '</script>'
             '<script type="application/ld+json">' + faq + '</script>' + ga)
