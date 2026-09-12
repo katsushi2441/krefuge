@@ -575,6 +575,7 @@ button.go{padding:11px 20px;border:0;border-radius:9px;background:linear-gradien
  <input type="hidden" name="hazard" id="hzin" value="__HAZARD__">
  <button class="go" type="submit">移動</button>
 </form>
+<p class="muted" style="margin-top:14px">このシステムは買い切りで自社サーバーに設置できます → <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&amp;ref=krefuge-map" target="_blank" rel="noopener" style="color:#0a726b">Kurage 避難所マップ（税込55,000円・ソースコード同梱）</a></p>
 </main>
 <script>
 var BASE='../', HZ='__HAZARD__';
@@ -737,6 +738,10 @@ def llms():
 ## 注意
 判定は住所から求めた代表点による参考情報で、公的な証明ではない。
 避難のときは、自治体が出している避難情報と、その時点で実際に開設されている避難所を確認すること。
+
+## 買い切り版
+- 商品ページ: https://kappstore.exbridge.jp/app.php?id=162f155897390072
+- 税込55,000円。ソースコード（MIT）・データ取り込みスクリプト・設置手順書を同梱。自社サーバーで動かせる。
 
 ## 関連（同じ運営の防災ツール）
 - 洪水・内水ハザードマップ: https://kurage.exbridge.jp/kflood.php/
