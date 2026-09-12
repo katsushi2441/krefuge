@@ -271,6 +271,7 @@ def healthz():
 
 PAGE = """<!doctype html><html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-BP0650KDFR');</script>
 <title>Kurage 避難所マップ | 住所から避難所まで徒歩何分・海抜（標高）も表示（全国11万件）</title>
 <meta name="description" content="住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを表示します。その地点の海抜（標高）も国土地理院のデータで表示するので、津波・高潮のときに避難先がここより高いかを判断できます。土砂災害・洪水・地震・津波など災害種別ごとに絞り込み。全国115,447件収録。">
 <link rel="canonical" href="https://kurage.exbridge.jp/krefuge.php/">
