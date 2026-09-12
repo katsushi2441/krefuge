@@ -7,3 +7,11 @@ __pycache__/
 data/zenkoku/
 data/*.zip
 data/krefuge.db
+
+# 秘密・バックアップ（.env だけでなく派生形も必ず）
+.env
+.env.*
+*.env
+*.env.bak*
+*.bak
+*.bak-*

@@ -398,6 +398,7 @@ button:disabled{opacity:.5}
 </dl>
 </section>
 <p style="font-size:13px;margin-top:10px"><strong>このシステムを事務所・自治体・会社の名前で公開する:</strong> <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&ref=krefuge" target="_blank" rel="noopener">買い切り 55,000円（税込）・ソースコード同梱（Kurage App Store）</a>／議員・政党事務所の方は <a href="/bousai-giin.html">地域防災情報サービス</a>、名古屋市内は <a href="https://exbridge.jp/ai-it-komon.html?ref=krefuge" target="_blank" rel="noopener">AI-IT顧問契約</a>（キャンペーン中は商品代金無料）</p>
+<p style="font-size:13px;margin-top:14px"><a href="map/"><b>地図で見る</b></a>（避難所を地図に表示・災害種別で絞り込み）</p>
 <p style="font-size:13px;margin-top:14px">主要都市から地域ページへ入る: <a href="area/kanagawa-yokohama">横浜</a>・<a href="area/aichi-nagoya">名古屋</a>・<a href="area/osaka-osaka">大阪</a>・<a href="area/hyogo-kobe">神戸</a>・<a href="area/fukuoka-fukuoka">福岡</a>・<a href="area/">地域一覧</a></p>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
@@ -504,6 +505,186 @@ def index():
     return HTMLResponse(PAGE)
 
 
+_MAP_HTML = """<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-BP0650KDFR');</script>
+<script>(function(){var s=document.createElement('script');s.src='https://kurage.exbridge.jp/simpletrack.php?url='+encodeURIComponent(location.href)+'&ref='+encodeURIComponent(document.referrer);s.async=true;document.head.appendChild(s)})();</script>
+<title>地図で見る｜Kurage 避難所マップ</title>
+<meta name="description" content="全国の指定緊急避難場所・指定避難所を地図で見られます。災害の種別で絞り込めます。同じ建物でも洪水では使えて津波では使えない、ということがあります。">
+<link rel="canonical" href="https://kurage.exbridge.jp/krefuge.php/map/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Kurage">
+<meta property="og:title" content="地図で見る｜Kurage 避難所マップ">
+<meta property="og:description" content="全国の避難所を地図で。災害の種別で絞り込めます。">
+<meta property="og:url" content="https://kurage.exbridge.jp/krefuge.php/map/">
+<meta property="og:image" content="https://kurage.exbridge.jp/images/kurage-mascot-cutout.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<style>
+:root{--ink:#12202f;--muted:#5a6a7a;--line:#dce7ea;--teal:#0a9a8f;--deep:#0a726b;--paper:#f7fbfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);line-height:1.75;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line)}
+.bar{max-width:1040px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-weight:800;color:var(--ink);text-decoration:none;font-size:16px}
+.brand small{display:block;font-weight:500;font-size:11.5px;color:var(--muted)}
+.bar nav{margin-left:auto}.bar nav a{color:var(--deep);text-decoration:none;font-size:13.5px;margin-left:14px}
+main{max-width:1040px;margin:0 auto;padding:22px 20px 60px}
+h1{font-size:clamp(19px,3.2vw,25px);margin:0 0 8px}
+.muted{color:var(--muted);font-size:13.5px}
+.maprow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:14px;margin-top:14px}
+@media(max-width:820px){.maprow{grid-template-columns:minmax(0,1fr)}}
+#map{height:min(70vh,620px);border-radius:12px;border:1px solid var(--line);min-width:0}
+.side{min-width:0}
+.btns{display:flex;gap:7px;flex-wrap:wrap;margin:0}
+.btns button{padding:7px 13px;font-size:13px;border-radius:99px;border:1px solid #bfe3de;
+ background:#fff;color:var(--deep);font-weight:700;cursor:pointer}
+.btns button.on{background:linear-gradient(135deg,var(--teal),var(--deep));color:#fff;border-color:transparent}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.note{background:#fff8e8;border:1px solid #ecd8a7;border-radius:9px;padding:10px 12px;font-size:12.5px;margin:10px 0 0}
+form.search{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+input[type=text]{flex:1;min-width:min(100%,220px);padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:15px}
+button.go{padding:11px 20px;border:0;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--deep));color:#fff;font-weight:700;cursor:pointer}
+</style></head><body>
+<header><div class="bar">
+ <a class="brand" href="../">Kurage 避難所マップ<small>EXBRIDGE, INC.</small></a>
+ <nav><a href="../">住所で調べる</a><a href="./">地図で見る</a></nav>
+</div></header>
+<main>
+<h1>地図で見る</h1>
+<p class="muted">全国115,447件の指定緊急避難場所・指定避難所。<b>災害の種別で絞り込めます。</b>
+同じ建物でも、洪水では使えて津波では使えない、ということがあります。</p>
+
+<div class="btns" id="hz"></div>
+
+<div class="maprow">
+ <div id="map"></div>
+ <div class="side">
+  <div class="card" id="result"><p class="muted" style="margin:0">地図の印を押すと、ここに避難所の情報が出ます。</p></div>
+  <div class="note" id="hint" hidden>もう少し<b>拡大</b>すると避難所が表示されます。</div>
+  <div class="note" id="trunc" hidden>この範囲は件数が多すぎて<b>一部しか表示していません</b>。拡大すると全部出ます。</div>
+  <div class="note">避難所は<b>開設されるとは限りません</b>。実際に開いているかは、災害時に自治体の発表で確認してください。</div>
+ </div>
+</div>
+
+<form class="search" method="get" action="./">
+ <input type="text" name="q" value="__Q__" placeholder="住所で移動（例: 名古屋市港区港明1丁目）">
+ <input type="hidden" name="hazard" id="hzin" value="__HAZARD__">
+ <button class="go" type="submit">移動</button>
+</form>
+</main>
+<script>
+var BASE='../', HZ='__HAZARD__';
+var LABELS={flood:'洪水',landslid:'崖崩れ等',surge:'高潮',quake:'地震',tsunami:'津波',bigfire:'大規模火災',inlflood:'内水',volcano:'火山'};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var hz=document.getElementById('hz');
+var html='<button data-h="" class="'+(HZ?'':'on')+'">すべて</button>';
+for(var k in LABELS){html+='<button data-h="'+k+'" class="'+(HZ===k?'on':'')+'">'+LABELS[k]+'</button>';}
+hz.innerHTML=html;
+hz.addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  HZ=b.getAttribute('data-h');
+  [].forEach.call(hz.querySelectorAll('button'),function(x){x.className = x===b?'on':'';});
+  document.getElementById('hzin').value=HZ; load();
+});
+var map=new maplibregl.Map({container:'map',
+ style:{version:8,sources:{gsi:{type:'raster',tiles:['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'],tileSize:256,attribution:'国土地理院'}},
+ layers:[{id:'gsi',type:'raster',source:'gsi'}]},
+ center:[__LON__,__LAT__],zoom:__ZOOM__});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+var loading=false;
+function load(){
+  if(loading||map.getZoom()<11){document.getElementById('hint').hidden=false;
+    if(map.getSource('sh'))map.getSource('sh').setData({type:'FeatureCollection',features:[]});return;}
+  document.getElementById('hint').hidden=true; loading=true;
+  var b=map.getBounds();
+  fetch(BASE+'api/shelters.geojson?hazard='+encodeURIComponent(HZ)+'&bbox='+[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','))
+   .then(function(r){return r.json()}).then(function(j){
+     if(j.features&&map.getSource('sh'))map.getSource('sh').setData(j);
+     document.getElementById('trunc').hidden=!j.truncated;
+   }).catch(function(){}).then(function(){loading=false;});
+}
+map.on('load',function(){
+ map.addSource('sh',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+ map.addLayer({id:'sh',type:'circle',source:'sh',
+  paint:{'circle-radius':['interpolate',['linear'],['zoom'],11,3.5,14,6,17,9],
+   'circle-color':'#0a9a8f','circle-stroke-color':'#fff','circle-stroke-width':1.5,'circle-opacity':0.9}});
+ load();
+});
+map.on('moveend',load); map.on('zoomend',load);
+map.on('click','sh',function(e){
+ var p=e.features[0].properties;
+ document.getElementById('result').innerHTML=
+  '<div style="font-weight:800;margin-bottom:6px">'+esc(p.name)+'</div>'
+  +'<div class="muted">'+esc(p.address)+'</div>'
+  +'<div style="margin-top:8px;font-size:13.5px"><b>使える災害</b><br>'+esc(p.hazards)+'</div>';
+});
+map.on('mouseenter','sh',function(){map.getCanvas().style.cursor='pointer'});
+map.on('mouseleave','sh',function(){map.getCanvas().style.cursor=''});
+__AUTO__
+</script></body></html>"""
+
+
+
+
+@app.get("/api/shelters.geojson")
+def shelters_geojson(bbox: str = "", hazard: str = "", limit: int = 1500):
+    """表示範囲の避難所を GeoJSON で返す。hazard を渡すと、その災害で使えるものだけに絞る。
+
+    **災害種別で絞るのが要**。同じ建物でも洪水では使えるが津波では使えない、が普通にある。
+    全部まとめて出すと「近くにあるから大丈夫」と誤解させる。
+    """
+    try:
+        minlon, minlat, maxlon, maxlat = [float(v) for v in bbox.split(",")]
+    except ValueError:
+        return JSONResponse({"error": "bbox は minlon,minlat,maxlon,maxlat の形で渡してください"}, status_code=400)
+    where = ""
+    if hazard in HAZARD_KEYS:
+        where = f' AND s."{hazard}" = 1'
+    c = conn()
+    try:
+        rows = c.execute(
+            "SELECT s.* FROM shelters s JOIN shelters_rtree r ON r.id = s.id"
+            " WHERE r.max_lat >= ? AND r.min_lat <= ? AND r.max_lon >= ? AND r.min_lon <= ?"
+            + where + " LIMIT ?",
+            (minlat, maxlat, minlon, maxlon, int(limit))).fetchall()
+    finally:
+        c.close()
+    feats = []
+    for r in rows:
+        ok = [label for k, label, _ in HAZARDS if str(r[k] or "0") == "1"]
+        feats.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [float(r["lon"]), float(r["lat"])]},
+            "properties": {"name": r["name"] or "", "address": r["address"] or "",
+                           "muni": r["muni"] or "", "hazards": "・".join(ok) or "（記載なし）"},
+        })
+    return {"type": "FeatureCollection", "features": feats, "truncated": len(feats) >= limit}
+
+
+@app.get("/map/", response_class=HTMLResponse)
+def map_page(request: Request, lat: float = None, lon: float = None, q: str = "", hazard: str = ""):
+    if q.strip() and lat is None:
+        try:
+            found = geocode(q.strip())
+            if found:
+                lat, lon = found["lat"], found["lon"]
+        except Exception:
+            pass
+    return HTMLResponse(_MAP_HTML
+        .replace("__LAT__", str(lat if lat is not None else 35.1815))
+        .replace("__LON__", str(lon if lon is not None else 136.9066))
+        .replace("__ZOOM__", "15" if lat is not None else "13")
+        .replace("__Q__", (q or "")[:100].replace('"', "&quot;"))
+        .replace("__HAZARD__", hazard if hazard in HAZARD_KEYS else "")
+        # 住所で移動したときは、どこを調べたのかが分かるように印を置く
+        .replace("__AUTO__", ("new maplibregl.Marker({color:'#c0392b'}).setLngLat([%r,%r]).addTo(map);"
+                              % (lon, lat)) if lat is not None else ""))
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots():
     return f"User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: {BASE}/sitemap.xml\n"
@@ -511,7 +692,7 @@ def robots():
 
 @app.get("/sitemap.xml")
 def sitemap():
-    urls = ["/", "/area/"] + [f"/area/{slug}" for slug, _, _ in AREAS]
+    urls = ["/", "/map/", "/area/"] + [f"/area/{slug}" for slug, _, _ in AREAS]
     body = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
             + "".join(f"<url><loc>{BASE}{u}</loc></url>" for u in urls) + "</urlset>")
     return PlainTextResponse(body, media_type="application/xml")
@@ -546,6 +727,7 @@ def llms():
 
 ## 使い方
 - 住所で調べる: {BASE}/?q=<住所>
+- 地図で見る: {BASE}/map/ （避難所を地図に表示。災害種別で絞り込める）
 - 地域一覧: {BASE}/area/
 - API: {BASE}/api/check?q=<住所>
 
