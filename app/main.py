@@ -693,7 +693,9 @@ def robots():
 
 @app.get("/sitemap.xml")
 def sitemap():
-    urls = ["/", "/map/", "/area/"] + [f"/area/{slug}" for slug, _, _ in AREAS]
+    # 1,699市区町村＋47都道府県。枚数を出さないと検索の入口が増えない（2026-09-13 実測の結論）
+    urls = (["/", "/map/", "/area/"] + [f"/area/pref/{pc}" for pc in sorted(MUNI_BY_PREF)]
+            + [f"/area/{SLUG_BY_CODE[c]}" for c in sorted(MUNI)])
     body = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
             + "".join(f"<url><loc>{BASE}{u}</loc></url>" for u in urls) + "</urlset>")
     return PlainTextResponse(body, media_type="application/xml")
@@ -709,7 +711,8 @@ def llms():
     finally:
         c.close()
     kinds = "、".join(f"{label}（{key}）" for key, label, _ in HAZARDS)
-    areas = "\n".join(f"- {city}: {BASE}/area/{slug}" for slug, city, _ in AREAS)
+    areas = "\n".join(f"- {d['pref']}{d['muni']}: {BASE}/area/{SLUG_BY_CODE[c]}"
+                      for c, d in sorted(MUNI.items(), key=lambda x: -x[1]["shelters"])[:20])
     return f"""# Kurage 避難所マップ
 
 > 住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを返すサイト。
@@ -758,24 +761,50 @@ def llms():
 _STYLE = re.search(r"<style>.*?</style>", PAGE, re.S).group(0)
 _SCRIPT = re.search(r"<script>(?:(?!application/ld).)*?</script>", PAGE, re.S).group(0).replace("'api/check", "'../api/check")
 
-AREAS = [
-    ("kanagawa-yokohama", "横浜市", "神奈川県横浜市中区海岸通"),
-    ("aichi-nagoya", "名古屋市", "愛知県名古屋市中村区名駅"),
-    ("osaka-osaka", "大阪市", "大阪府大阪市北区梅田"),
-    ("hyogo-kobe", "神戸市", "兵庫県神戸市中央区三宮町"),
-    ("fukuoka-fukuoka", "福岡市", "福岡県福岡市博多区博多駅前"),
-    ("hokkaido-sapporo", "札幌市", "北海道札幌市中央区大通西"),
-    ("kyoto-kyoto", "京都市", "京都府京都市中京区"),
-    ("hiroshima-hiroshima", "広島市", "広島県広島市中区紙屋町"),
-    ("miyagi-sendai", "仙台市", "宮城県仙台市青葉区中央"),
-    ("kochi-kochi", "高知市", "高知県高知市種崎"),
-]
-AREA_BY_SLUG = {a[0]: a for a in AREAS}
+# 既にインデックス済みの10本の romaji スラッグは canonical として据え置く。新規は団体コード。
+LEGACY_SLUG = {
+    "14100": "kanagawa-yokohama", "23100": "aichi-nagoya", "27100": "osaka-osaka",
+    "28100": "hyogo-kobe", "40130": "fukuoka-fukuoka", "01100": "hokkaido-sapporo",
+    "26100": "kyoto-kyoto", "34100": "hiroshima-hiroshima", "04100": "miyagi-sendai",
+    "39201": "kochi-kochi",
+}
+SLUG_BY_CODE = dict(LEGACY_SLUG)
+CODE_BY_SLUG = {v: k for k, v in LEGACY_SLUG.items()}
 
 
-def _area_head(city, slug, desc):
+def _load_muni():
+    """muni_stats（scripts/build_muni_stats.py が作る）を起動時に読む。1,699件。"""
+    out = {}
+    try:
+        c = sqlite3.connect(DB)
+        c.row_factory = sqlite3.Row
+        for r in c.execute("SELECT * FROM muni_stats"):
+            d = dict(r)
+            d["samples"] = json.loads(d["samples"] or "[]")
+            out[d["muni_code"]] = d
+        c.close()
+    except Exception as e:  # noqa: BLE001
+        print("muni_stats を読めません（地域ページは主要都市のみ）:", e)
+    return out
+
+
+MUNI = _load_muni()
+for _c in MUNI:
+    SLUG_BY_CODE.setdefault(_c, _c)
+    CODE_BY_SLUG.setdefault(SLUG_BY_CODE[_c], _c)
+MUNI_BY_PREF = {}
+for _d in sorted(MUNI.values(), key=lambda x: -x["shelters"]):
+    MUNI_BY_PREF.setdefault(_d["pref_code"], []).append(_d)
+
+
+def _muni_of(slug):
+    code = CODE_BY_SLUG.get(slug) or (slug if slug in MUNI else None)
+    return MUNI.get(code) if code else None
+
+
+def _area_head(city, slug, desc, title=None):
     url = "https://kurage.exbridge.jp/krefuge.php/area/" + slug
-    title = city + "の避難所マップ｜住所から最寄りの避難所まで徒歩何分かを調べる | Kurage"
+    title = title or (city + "の避難所マップ｜住所から最寄りの避難所まで徒歩何分かを調べる | Kurage")
     ga = ('<script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>'
           '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}'
           "gtag('js',new Date());gtag('config','G-BP0650KDFR');</script>")
@@ -803,52 +832,136 @@ def _area_head(city, slug, desc):
             '<script type="application/ld+json">' + faq + '</script>' + ga)
 
 
+_AREA_CSS = ("<style>.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}"
+             ".mcard{border:1px solid #dfe6ea;border-radius:10px;padding:10px 12px;background:#fff;min-width:0}"
+             ".mk{font-size:12px;color:#5b6b76}.mv{font-size:19px;font-weight:700;color:#12202f;margin-top:3px}"
+             ".mlist{font-size:14px;line-height:2;columns:2;column-gap:22px}"
+             "@media(max-width:560px){.mlist{columns:1}}"
+             ".mtbl{width:100%;border-collapse:collapse;font-size:14px}.mtbl th,.mtbl td{border:1px solid #e3e9ec;padding:6px 8px;text-align:left}"
+             ".mtbl th{background:#f5f8f9;white-space:nowrap}.mwrap{overflow-x:auto}</style>")
+
+
+def _esc(t):
+    return (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _card(k, v):
+    return '<div class="mcard"><div class="mk">%s</div><div class="mv">%s</div></div>' % (k, v)
+
+
+@app.get("/area/pref/{pref_code}", response_class=HTMLResponse)
+def area_pref(pref_code: str):
+    """都道府県ごとの一覧。市区町村ページをクロールさせる内部リンクの束ね役。"""
+    lst = MUNI_BY_PREF.get(pref_code)
+    if not lst:
+        raise HTTPException(404, "その都道府県のページはありません")
+    pref = lst[0]["pref"]
+    tot = sum(d["shelters"] for d in lst)
+    desc = ("%sの指定緊急避難場所は%s市区町村で計%s件。市区町村を選ぶか住所を入れると、"
+            "最寄りの避難所まで徒歩何分かが分かります。" % (pref, f"{len(lst):,}", f"{tot:,}"))
+    rows = "".join('<tr><td><a href="/krefuge.php/area/%s">%s</a></td><td>%s</td><td>%s</td>'
+                   '<td>%s</td><td>%s</td></tr>'
+                   % (SLUG_BY_CODE[d["muni_code"]], d["muni"], f'{d["shelters"]:,}',
+                      f'{d["flood"]:,}', f'{d["quake"]:,}', f'{d["tsunami"]:,}') for d in lst)
+    body = ('<h1><a href="/krefuge.php/">%sの指定緊急避難場所（市区町村一覧）</a></h1>' % pref
+            + '<p class="lead">%sでは<strong>%s市区町村</strong>に計<strong>%s件</strong>の指定緊急避難場所があります。'
+              '災害種別ごとの指定件数も載せています（同じ場所でも地震で使えて洪水では使えないことがあります）。</p>'
+              % (pref, f"{len(lst):,}", f"{tot:,}")
+            + '<div class="mwrap"><table class="mtbl"><tr><th>市区町村</th><th>避難所</th>'
+              '<th>洪水</th><th>地震</th><th>津波</th></tr>' + rows + '</table></div>'
+            + '<p class="src" style="margin-top:14px">全国版は <a href="/krefuge.php/">Kurage 避難所マップ</a>、'
+              '地図は <a href="/krefuge.php/map/">全国地図</a>、他県は <a href="/krefuge.php/area/">地域一覧</a>。</p>'
+            + '<p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成</p>')
+    head = _area_head(pref, "pref/" + pref_code, desc,
+                      title="%sの指定緊急避難場所｜市区町村別の件数 | Kurage" % pref)
+    return HTMLResponse(head + _STYLE + _AREA_CSS + '</head><body><div class="wrap">' + body + "</div></body></html>")
+
+
 @app.get("/area/{slug}", response_class=HTMLResponse)
 def area(slug: str):
-    a = AREA_BY_SLUG.get(slug)
-    if not a:
+    d = _muni_of(slug)
+    if not d:
         raise HTTPException(404, "地域が見つかりません")
-    _, city, example = a
+    city, pref = d["muni"], d["pref"]
+    full = pref + city
+    n = d["shelters"]
+    samples = d["samples"] or []
+    example = samples[0]["address"] if samples else full
     exq = requests.utils.quote(example)
-    desc = (city + "の住所を入れると、最寄りの指定緊急避難場所まで道路をたどって徒歩何分かを表示します。"
-            "災害種別で絞り込み可能。全国115,447件を収録。無料・登録不要。")
-    body = (
-        '<h1><a href="/krefuge.php/">' + city + "の避難所マップ</a></h1>"
-        '<p class="lead">' + city + "の住所を入れると、最寄りの<strong>指定緊急避難場所</strong>まで"
-        "道路をたどって<strong>徒歩何分</strong>かを表示します。指定緊急避難場所は災害種別ごとの指定なので、"
-        "<strong>その災害で使える避難所</strong>に絞り込めます。全国115,447件を収録。</p>"
-        '<div class="card"><form id="f">'
-        '<input id="q" placeholder="例: ' + example + '" value="' + example + '" autocomplete="off">'
-        '<select id="h"><option value="">災害種別: 指定なし</option>'
-        '<option value="landslid">土砂災害</option><option value="flood">洪水</option>'
-        '<option value="quake">地震</option><option value="tsunami">津波</option>'
-        '<option value="surge">高潮</option><option value="inlflood">内水氾濫</option>'
-        '<option value="bigfire">大規模火事</option><option value="volcano">火山現象</option></select>'
-        '<button id="b">調べる</button></form><div class="res" id="r"></div></div>'
-        '<section class="doc">'
-        "<h2>" + city + "で使える避難所を探す</h2>"
-        "<p>" + city + "の住所を入れて災害種別を選ぶと、その災害に対して指定されている避難所だけを、"
-        "近い順に道路網でたどって表示します。地震で使える場所が洪水では使えないことがあるためです。</p>"
-        "<h2>あわせて確認したい方へ</h2>"
-        '<p>' + city + "の土砂災害警戒区域は "
-        '<a href="/khazard.php/?q=' + exq + '">土砂災害ハザードマップ</a>、津波の浸水想定は '
-        '<a href="/ktsunami.php/area/' + slug + '">津波浸水想定マップ</a> で調べられます。'
-        '全国版は <a href="/krefuge.php/">Kurage 避難所マップ</a> です。</p></section>'
-        '<p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成'
-        "／住所検索・経路: 国土地理院 地名検索API／Valhalla</p>")
-    html = _area_head(city, slug, desc) + _STYLE + '</head><body><div class="wrap">' + body + _SCRIPT + "</body></html>"
-    return HTMLResponse(html)
+    kinds = [(lab, d[k]) for k, lab, _ in HAZARDS if d.get(k)]
+    kindtxt = "・".join("%s%s件" % (lab, f"{v:,}") for lab, v in kinds[:4])
+    desc = ("%sの指定緊急避難場所は%s件。%s。住所を入れると、その災害で使える避難所まで徒歩何分かを表示します。"
+            % (full, f"{n:,}", kindtxt))
+    cards = "".join(_card(lab, f"{v:,}件") for lab, v in kinds)
+    ex = ""
+    if samples:
+        ex = ('<h2>%sの指定緊急避難場所の例</h2><div class="mwrap"><table class="mtbl">'
+              '<tr><th>施設名</th><th>住所</th></tr>%s</table></div>'
+              % (city, "".join("<tr><td>%s</td><td>%s</td></tr>" % (_esc(s["name"]), _esc(s["address"]))
+                               for s in samples)))
+    vint = ""
+    if d.get("last_updated"):
+        vint = ('<p class="src">このデータの%sぶんは %s に最初に公開され、%s に更新されています。'
+                '国土地理院が自治体から受け取って公開している値です。</p>'
+                % (city, d.get("first_published") or "—", d["last_updated"]))
+    sib = [x for x in MUNI_BY_PREF.get(d["pref_code"], []) if x["muni_code"] != d["muni_code"]][:40]
+    sib_html = ""
+    if sib:
+        sib_html = ('<section class="doc"><h2>%sの他の市区町村</h2><div class="mlist">%s</div>'
+                    '<p class="src" style="margin-top:8px"><a href="/krefuge.php/area/pref/%s">%sの全市区町村一覧</a></p></section>'
+                    % (pref, "".join('<a href="/krefuge.php/area/%s">%s</a>（%s件）<br>'
+                                     % (SLUG_BY_CODE[x["muni_code"]], x["muni"], f'{x["shelters"]:,}') for x in sib),
+                       d["pref_code"], pref))
+    body = ('<h1><a href="/krefuge.php/">%sの避難所マップ</a></h1>' % full
+            + '<p class="lead">%s には指定緊急避難場所が<strong>%s件</strong>あります。住所を入れると、'
+              '最寄りの避難所まで道路をたどって<strong>徒歩何分</strong>かを表示します。'
+              '指定緊急避難場所は<strong>災害種別ごとの指定</strong>なので、その災害で使える避難所だけに絞り込めます。</p>'
+              % (full, f"{n:,}")
+            + '<div class="card"><form id="f">'
+              '<input id="q" placeholder="例: %s" value="%s" autocomplete="off">'
+              '<select id="h"><option value="">災害種別: 指定なし</option>'
+              '<option value="landslid">土砂災害</option><option value="flood">洪水</option>'
+              '<option value="quake">地震</option><option value="tsunami">津波</option>'
+              '<option value="surge">高潮</option><option value="inlflood">内水氾濫</option>'
+              '<option value="bigfire">大規模火事</option><option value="volcano">火山現象</option></select>'
+              '<button id="b">調べる</button></form><div class="res" id="r"></div></div>' % (_esc(example), _esc(example))
+            + '<section class="doc"><h2>%sで災害種別ごとに使える避難所の数</h2><div class="mgrid">%s</div>'
+              '<p class="src">同じ施設でも、地震では使えて洪水では使えないことがあります。'
+              '数が少ない種別ほど、その災害のときに行ける場所が限られます。</p>%s%s</section>'
+              % (city, cards or '<p class="src">災害種別の指定がデータにありません。</p>', vint, ex)
+            + sib_html
+            + '<section class="doc"><h2>あわせて確認したい方へ</h2><p>'
+              '%sの土砂災害警戒区域は <a href="/khazard.php/?q=%s">土砂災害ハザードマップ</a>、'
+              '津波の浸水想定は <a href="/ktsunami.php/">津波浸水想定マップ</a>、'
+              '洪水は <a href="/kflood.php/">洪水・内水ハザードマップ</a> で調べられます。'
+              '地図で見るなら <a href="/krefuge.php/map/">全国地図</a>、'
+              '全国版は <a href="/krefuge.php/">Kurage 避難所マップ</a> です。</p></section>' % (full, exq)
+            + '<p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成'
+              '／住所検索・経路: 国土地理院 地名検索API／Valhalla。件数は住所から市区町村を判定した実測値です。</p>')
+    head = _area_head(full, SLUG_BY_CODE.get(d["muni_code"], d["muni_code"]), desc,
+                      title="%sの避難所マップ｜指定緊急避難場所%s件を災害種別で絞って探す | Kurage" % (full, f"{n:,}"))
+    return HTMLResponse(head + _STYLE + _AREA_CSS + '</head><body><div class="wrap">' + body + _SCRIPT + "</body></html>")
 
 
 @app.get("/area", response_class=HTMLResponse)
 @app.get("/area/", response_class=HTMLResponse)
 def area_index():
-    links = "".join('<li><a href="/krefuge.php/area/' + s + '">' + c + "の避難所マップ</a></li>"
-                    for s, c, _ in AREAS)
-    desc = "主要都市ごとの避難所マップの入口です。住所を入れると最寄りの避難所まで徒歩何分かが分かります。"
-    html = (_area_head("地域一覧", "index", desc) + _STYLE
-            + '</head><body><div class="wrap"><h1>地域から避難所を探す</h1>'
-            '<p class="lead">主要都市ごとの入口です。全国版は '
-            '<a href="/krefuge.php/">Kurage 避難所マップ</a> をどうぞ。</p>'
-            '<ul style="font-size:15px;line-height:2.2">' + links + "</ul></div></body></html>")
-    return HTMLResponse(html)
+    total = sum(d["shelters"] for d in MUNI.values())
+    prefs = sorted(MUNI_BY_PREF.items(), key=lambda x: x[0])
+    rows = "".join('<tr><td><a href="/krefuge.php/area/pref/%s">%s</a></td><td>%s</td><td>%s</td></tr>'
+                   % (pc, lst[0]["pref"], f"{len(lst):,}", f'{sum(x["shelters"] for x in lst):,}')
+                   for pc, lst in prefs)
+    desc = ("全国%s市区町村・%s件の指定緊急避難場所を、市区町村ごとの件数つきで一覧にしました。"
+            "都道府県から市区町村を選ぶと、災害種別ごとに使える避難所の数が分かります。"
+            % (f"{len(MUNI):,}", f"{total:,}"))
+    body = ('<h1><a href="/krefuge.php/">地域から避難所を探す</a></h1>'
+            '<p class="lead">全国<strong>%s市区町村</strong>・<strong>%s件</strong>を収録しています。'
+            '都道府県を選ぶと市区町村ごとの件数が出ます。住所で直接探すなら '
+            '<a href="/krefuge.php/">全国版</a>、地図なら <a href="/krefuge.php/map/">全国地図</a> をどうぞ。</p>'
+            % (f"{len(MUNI):,}", f"{total:,}")
+            + '<div class="mwrap"><table class="mtbl"><tr><th>都道府県</th><th>市区町村</th><th>避難所</th></tr>'
+            + rows + '</table></div>'
+            + '<p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成</p>')
+    head = _area_head("地域一覧", "", desc,
+                      title="全国の指定緊急避難場所｜都道府県・市区町村別の件数 | Kurage")
+    return HTMLResponse(head + _STYLE + _AREA_CSS + '</head><body><div class="wrap">' + body + "</div></body></html>")
