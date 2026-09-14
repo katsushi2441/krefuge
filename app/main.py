@@ -859,6 +859,31 @@ TERMS = [("避難所", "指定避難所（災害のあと生活する場所）�
          ("福祉避難所", "指定避難所のうち要配慮者向け（原則、直接は行けない）")]
 
 
+_WAGAMACHI_MTIME = 0.0
+
+
+def _wagamachi_path():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "data", "wagamachi.json")
+
+
+def _wagamachi():
+    """公式ハザードマップのリンク。ファイルが更新されていたら読み直す。
+
+    生存確認のジョブ（kurage_web/backend/sourcelink_jobs.py）が ok を書き換えるので、
+    mtime を見て読み直せば**サービスを再起動しなくても**死んだリンクが消える。
+    """
+    global WAGAMACHI, WAGAMACHI_FETCHED, _WAGAMACHI_MTIME
+    try:
+        m = os.path.getmtime(_wagamachi_path())
+    except OSError:
+        return WAGAMACHI
+    if m != _WAGAMACHI_MTIME:
+        WAGAMACHI, WAGAMACHI_FETCHED = _load_wagamachi()
+        _WAGAMACHI_MTIME = m
+    return WAGAMACHI
+
+
 def _load_wagamachi():
     """市区町村の公式ハザードマップへのリンク（scripts/fetch_wagamachi.py が作る）。
 
@@ -877,11 +902,15 @@ def _load_wagamachi():
 
 
 WAGAMACHI, WAGAMACHI_FETCHED = _load_wagamachi()
+try:
+    _WAGAMACHI_MTIME = os.path.getmtime(_wagamachi_path())
+except OSError:
+    _WAGAMACHI_MTIME = 0.0
 
 
 def _official_block(code, city, kinds):
     """市区町村の公式ハザードマップへの導線。担当課と電話も出す。"""
-    w = WAGAMACHI.get(code) or {}
+    w = _wagamachi().get(code) or {}
     if not w:
         return ""
     rows, contact = [], None

@@ -1356,8 +1356,8 @@
     "address": "北海道瀬棚郡今金町字今金48-1",
     "tel": "0137-82-0111",
     "url": "https://www.town.imakane.lg.jp/gyousei/kurashi/syoubou/2710_1.html",
-    "http": "503",
-    "ok": false
+    "http": "200",
+    "ok": true
    },
    "土砂災害": {
     "pref": "北海道",
@@ -1366,8 +1366,8 @@
     "address": "北海道瀬棚郡今金町字今金48-1",
     "tel": "0137-82-0111",
     "url": "https://www.town.imakane.lg.jp/gyousei/kurashi/syoubou/post_43.html",
-    "http": "503",
-    "ok": false
+    "http": "200",
+    "ok": true
    }
   },
   "01371": {
@@ -40750,5 +40750,6 @@
     "ok": false
    }
   }
- }
+ },
+ "_verified": "2026-09-14"
 }
