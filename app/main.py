@@ -402,7 +402,7 @@ button:disabled{opacity:.5}
 <p style="font-size:13px;margin-top:14px">主要都市から地域ページへ入る: <a href="area/kanagawa-yokohama">横浜</a>・<a href="area/aichi-nagoya">名古屋</a>・<a href="area/osaka-osaka">大阪</a>・<a href="area/hyogo-kobe">神戸</a>・<a href="area/fukuoka-fukuoka">福岡</a>・<a href="area/">地域一覧</a></p>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
-住所検索・標高: 国土地理院 地名検索API／標高API</p>
+住所検索・標高: 国土地理院 地名検索API／標高API</p><p class="src"><a href="https://exbridge.jp/politech/#bousai?ref=kurage-krefuge" rel="noopener">住民が検索している防災の言葉（32語）</a> ・ <a href="https://exbridge.jp/ai-system/?ref=kurage-krefuge" rel="noopener">AIでできること</a> ・ <a href="https://exbridge.jp/solution/seito.html?ref=kurage-krefuge" rel="noopener">政党・議員事務所むけ</a></p>
 </div>
 <script>
 var f=document.getElementById('f'),q=document.getElementById('q'),h=document.getElementById('h'),
