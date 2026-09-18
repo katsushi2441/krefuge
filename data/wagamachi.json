@@ -18804,8 +18804,8 @@
     "address": "長野県上伊那郡飯島町飯島2537",
     "tel": "0265-86-3111",
     "url": "https://www.town.iijima.lg.jp/soshikiichiran/somuka/kikikanrigakarikakari/bousai/2121.html",
-    "http": "200",
-    "ok": true
+    "http": "404",
+    "ok": false
    },
    "土砂災害": {
     "pref": "長野県",
@@ -18814,8 +18814,8 @@
     "address": "長野県上伊那郡飯島町飯島2537",
     "tel": "0265-86-3111",
     "url": "https://www.town.iijima.lg.jp/soshikiichiran/somuka/kikikanrigakarikakari/bousai/2121.html",
-    "http": "200",
-    "ok": true
+    "http": "404",
+    "ok": false
    }
   },
   "20385": {
@@ -25350,7 +25350,7 @@
     "address": "兵庫県西宮市六湛寺町8-28",
     "tel": "0798-35-3547",
     "url": "https://www.nishi.or.jp/kurashi/anshin/bosaijoho/kakushumap/kozui_hazard.html",
-    "http": "200",
+    "http": "301",
     "ok": true
    },
    "津波": {
@@ -32298,8 +32298,8 @@
     "address": "",
     "tel": "0944-77-8152",
     "url": "https://www.city.yanagawa.fukuoka.jp/bosai/bosai/tunami_map.html",
-    "http": "200",
-    "ok": true
+    "http": "404",
+    "ok": false
    }
   },
   "40210": {
@@ -40751,5 +40751,5 @@
    }
   }
  },
- "_verified": "2026-09-14"
+ "_verified": "2026-09-19"
 }
