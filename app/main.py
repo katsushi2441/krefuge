@@ -256,7 +256,11 @@ def check(request: Request, q: str = "", hazard: str = "", lat: float | None = N
         })
     elev = elevation(g["lat"], g["lon"])
     live = None
-    if nagoya_live.AREA in (g["label"] or ""):
+    # 緯度経度だけで聞かれると label は "35.13,136.94" になり、市名が入らない。
+    # そのときは最寄りの避難所の住所（と vintage_for が返す自治体名）で判定する。
+    # これが無いと、地図クリックや kflood からの問い合わせで開設状況が常に null になっていた（2026-09-21 修正）。
+    _area_src = " ".join([g["label"] or "", muni or "", (rows[0]["address"] if rows else "") or ""])
+    if nagoya_live.AREA in _area_src:
         # 名古屋市: 帰宅困難者向け退避施設の「いまの開設状況」（市の公開 Feature Service）。指定緊急避難場所とは別物として返す
         d = nagoya_live.fetch()
         live = {"area": nagoya_live.AREA, "status": d.get("status"), "updated_at": d.get("updated_at"), "fetched_at": d.get("fetched_at"),
