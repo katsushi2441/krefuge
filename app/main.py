@@ -724,6 +724,22 @@ def robots():
     return f"User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: {BASE}/sitemap.xml\n"
 
 
+
+def _lastmod():
+    """サイトマップの lastmod。**このファイルの更新日**を使う。
+
+    ページの中身が変わるのはコードかデータが変わったときなので、毎回 now を入れない
+    （「いつも更新されている」ことになって、かえって無視される）。
+    2026-09-22 実測: Google が取りに来ていた子サイトマップは lastmod のあるものだけだった。
+    """
+    import datetime as _d
+    import os as _o
+    return _d.datetime.fromtimestamp(_o.path.getmtime(_o.path.abspath(__file__))).strftime("%Y-%m-%d")
+
+
+_LASTMOD = _lastmod()
+
+
 @app.get("/sitemap.xml")
 def sitemap():
     # 1,699市区町村＋47都道府県。枚数を出さないと検索の入口が増えない（2026-09-13 実測の結論）
@@ -731,7 +747,7 @@ def sitemap():
             + [f"/area/{SLUG_BY_CODE[c]}" for c in sorted(MUNI)]
             + [f"/area/{cs}/{x['ward_slug']}" for cs in sorted(WARDS) for x in WARDS[cs]])
     body = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-            + "".join(f"<url><loc>{BASE}{u}</loc></url>" for u in urls) + "</urlset>")
+            + "".join(f"<url><loc>{BASE}{u}</loc><lastmod>{_LASTMOD}</lastmod><changefreq>monthly</changefreq></url>" for u in urls) + "</urlset>")
     return PlainTextResponse(body, media_type="application/xml")
 
 

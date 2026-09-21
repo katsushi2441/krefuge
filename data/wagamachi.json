@@ -25350,7 +25350,7 @@
     "address": "兵庫県西宮市六湛寺町8-28",
     "tel": "0798-35-3547",
     "url": "https://www.nishi.or.jp/kurashi/anshin/bosaijoho/kakushumap/kozui_hazard.html",
-    "http": "301",
+    "http": "200",
     "ok": true
    },
    "津波": {
@@ -40751,5 +40751,5 @@
    }
   }
  },
- "_verified": "2026-09-19"
+ "_verified": "2026-09-22"
 }
