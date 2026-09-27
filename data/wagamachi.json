@@ -1196,7 +1196,7 @@
     "address": "北海道檜山郡江差町字中歌町193-1",
     "tel": "0139-52-6711",
     "url": "https://www.hokkaido-esashi.jp/modules/lifeinfo/content0985.html",
-    "http": "200",
+    "http": "000",
     "ok": true
    },
    "津波": {
@@ -1206,7 +1206,7 @@
     "address": "北海道檜山郡江差町字中歌町193-1",
     "tel": "0139-52-6711",
     "url": "https://www.hokkaido-esashi.jp/modules/lifeinfo/content0985.html",
-    "http": "200",
+    "http": "000",
     "ok": true
    },
    "土砂災害": {
@@ -1216,7 +1216,7 @@
     "address": "北海道檜山郡江差町字中歌町193-1",
     "tel": "0139-52-6711",
     "url": "https://www.hokkaido-esashi.jp/modules/lifeinfo/content0985.html",
-    "http": "200",
+    "http": "000",
     "ok": true
    }
   },
@@ -15826,8 +15826,8 @@
     "address": "新潟県妙高市栄町5-1",
     "tel": "0255-74-0002",
     "url": "https://www.city.myoko.niigata.jp/docs/454.html",
-    "http": "200",
-    "ok": true
+    "http": "404",
+    "ok": false
    },
    "土砂災害": {
     "pref": "新潟県",
@@ -16206,7 +16206,7 @@
     "address": "新潟県刈羽郡刈羽村大字割町新田215番地1",
     "tel": "0257-45-3912",
     "url": "https://www.vill.kariwa.niigata.jp/www/info/detail.jsp?id=957",
-    "http": "200",
+    "http": "000",
     "ok": true
    },
    "土砂災害": {
@@ -16216,7 +16216,7 @@
     "address": "新潟県刈羽郡刈羽村大字割町新田215番地1",
     "tel": "0257-45-3912",
     "url": "https://www.vill.kariwa.niigata.jp/www/info/detail.jsp?id=5095",
-    "http": "200",
+    "http": "000",
     "ok": true
    }
   },
@@ -30486,7 +30486,7 @@
     "address": "徳島県勝浦郡勝浦町大字久国字久保田3",
     "tel": "0885-42-2511",
     "url": "https://www.town.katsuura.lg.jp/docs/2021033100015/",
-    "http": "200",
+    "http": "000",
     "ok": true
    },
    "土砂災害": {
@@ -30496,7 +30496,7 @@
     "address": "徳島県勝浦郡勝浦町大字久国字久保田3",
     "tel": "0885-42-2511",
     "url": "https://www.town.katsuura.lg.jp/docs/2021033100015/",
-    "http": "200",
+    "http": "000",
     "ok": true
    }
   },
@@ -30704,7 +30704,7 @@
     "address": "徳島県板野郡上板町七條字経塚42",
     "tel": "088-694-6824",
     "url": "https://www.townkamiita.jp/docs/2018110100013/",
-    "http": "200",
+    "http": "000",
     "ok": true
    },
    "土砂災害": {
@@ -30714,7 +30714,7 @@
     "address": "徳島県板野郡上板町七條字経塚42",
     "tel": "088-694-6824",
     "url": "https://www.townkamiita.jp/docs/2018110100013/",
-    "http": "200",
+    "http": "000",
     "ok": true
    }
   },
@@ -40751,5 +40751,5 @@
    }
   }
  },
- "_verified": "2026-09-22"
+ "_verified": "2026-09-28"
 }

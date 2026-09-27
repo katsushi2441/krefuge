@@ -73,6 +73,13 @@ def verify(data):
     print(f"  リンク生存確認 {len(urls):,} 本 …")
     with ThreadPoolExecutor(max_workers=16) as ex:
         status = dict(zip(urls, ex.map(head, urls)))
+    # 一時的な 5xx・4xx（混雑・メンテ）で生きているリンクを消さないよう、落とす候補は間をおいてもう一度だけ確かめる
+    bad = [u for u, c in status.items() if (c.startswith("4") and c != "403") or c.startswith("5")]
+    if bad:
+        import time
+        time.sleep(30)
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            status.update(zip(bad, ex.map(head, bad)))
     dead = 0
     for kinds in data.values():
         for it in kinds.values():
