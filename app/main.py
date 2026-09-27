@@ -54,6 +54,8 @@ HAZARDS = [
 HAZARD_KEYS = {k for k, _, _ in HAZARDS}
 
 app = FastAPI(title="Kurage 避難所マップ")
+from app import distmode  # noqa: E402  配布先で KURAGE_PUBLIC_ORIGIN を設定したときだけ働く
+distmode.install(app)
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "static")), name="static")
 _hits = defaultdict(list)
 
@@ -381,12 +383,12 @@ button:disabled{opacity:.5}
   </form>
   <div class="res" id="r"></div>
 </div>
-<div class="pv">
+<!--kurage-only--><div class="pv">
 <video src="https://kurage.exbridge.jp/pv/krefuge-pv-30s.mp4"
        poster="https://kurage.exbridge.jp/pv/krefuge-pv-poster.jpg"
        controls playsinline preload="none" width="1920" height="1080"></video>
 <p class="note-sm">冒頭8秒の実写映像は MiniMax H3（セルフホスト）で生成しています。</p>
-</div>
+</div><!--/kurage-only-->
 <section class="doc">
 <h2>「指定緊急避難場所」と「指定避難所」は違います</h2>
 <p>混同されがちですが、役割が異なります。本サービスが扱うのは<strong>前者</strong>です。</p>
@@ -430,12 +432,12 @@ button:disabled{opacity:.5}
 <dt>自社のサーバーで動かせますか。</dt><dd>はい。買い切り版を用意しています。住所を外部に送りたくない場合や、自社の拠点データと組み合わせたい場合にご利用ください。</dd>
 </dl>
 </section>
-<p style="font-size:13px;margin-top:10px"><strong>このシステムを事務所・自治体・会社の名前で公開する:</strong> <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&ref=krefuge" target="_blank" rel="noopener">買い切り 55,000円（税込）・ソースコード同梱（Kurage App Store）</a>／議員・政党事務所の方は <a href="/bousai-giin.html">地域防災情報サービス</a>、名古屋市内は <a href="https://exbridge.jp/ai-it-komon.html?ref=krefuge" target="_blank" rel="noopener">AI-IT顧問契約</a>（キャンペーン中は商品代金無料）</p>
+<!--kurage-only--><p style="font-size:13px;margin-top:10px"><strong>このシステムを事務所・自治体・会社の名前で公開する:</strong> <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&ref=krefuge" target="_blank" rel="noopener">買い切り 55,000円（税込）・ソースコード同梱（Kurage App Store）</a>／議員・政党事務所の方は <a href="/bousai-giin.html">地域防災情報サービス</a>、名古屋市内は <a href="https://exbridge.jp/ai-it-komon.html?ref=krefuge" target="_blank" rel="noopener">AI-IT顧問契約</a>（キャンペーン中は商品代金無料）</p><!--/kurage-only-->
 <p style="font-size:13px;margin-top:14px"><a href="map/"><b>地図で見る</b></a>（避難所を地図に表示・災害種別で絞り込み）</p>
 <p style="font-size:13px;margin-top:14px">主要都市から地域ページへ入る: <a href="area/kanagawa-yokohama">横浜</a>・<a href="area/aichi-nagoya">名古屋</a>・<a href="area/osaka-osaka">大阪</a>・<a href="area/hyogo-kobe">神戸</a>・<a href="area/fukuoka-fukuoka">福岡</a>・<a href="area/">地域一覧</a></p>
 <p class="src">出典: 国土地理院「指定緊急避難場所データ」（CC BY 4.0）を加工して作成 ／
 経路計算: <a href="https://valhalla.github.io/valhalla/" rel="noopener">Valhalla</a> ／
-住所検索・標高: 国土地理院 地名検索API／標高API</p><p class="src"><a href="https://exbridge.jp/politech/#bousai?ref=kurage-krefuge" rel="noopener">住民が検索している防災の言葉（32語）</a> ・ <a href="https://exbridge.jp/ai-system/?ref=kurage-krefuge" rel="noopener">AIでできること</a> ・ <a href="https://exbridge.jp/solution/seito.html?ref=kurage-krefuge" rel="noopener">政党・議員事務所むけ</a></p>
+住所検索・標高: 国土地理院 地名検索API／標高API</p><!--kurage-only--><p class="src"><a href="https://exbridge.jp/politech/#bousai?ref=kurage-krefuge" rel="noopener">住民が検索している防災の言葉（32語）</a> ・ <a href="https://exbridge.jp/ai-system/?ref=kurage-krefuge" rel="noopener">AIでできること</a> ・ <a href="https://exbridge.jp/solution/seito.html?ref=kurage-krefuge" rel="noopener">政党・議員事務所むけ</a></p><!--/kurage-only-->
 </div>
 <script>
 var f=document.getElementById('f'),q=document.getElementById('q'),h=document.getElementById('h'),
@@ -608,7 +610,7 @@ button.go{padding:11px 20px;border:0;border-radius:9px;background:linear-gradien
  <input type="hidden" name="hazard" id="hzin" value="__HAZARD__">
  <button class="go" type="submit">移動</button>
 </form>
-<p class="muted" style="margin-top:14px">このシステムは買い切りで自社サーバーに設置できます → <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&amp;ref=krefuge-map" target="_blank" rel="noopener" style="color:#0a726b">Kurage 避難所マップ（税込55,000円・ソースコード同梱）</a></p>
+<!--kurage-only--><p class="muted" style="margin-top:14px">このシステムは買い切りで自社サーバーに設置できます → <a href="https://kappstore.exbridge.jp/app.php?id=162f155897390072&amp;ref=krefuge-map" target="_blank" rel="noopener" style="color:#0a726b">Kurage 避難所マップ（税込55,000円・ソースコード同梱）</a></p><!--/kurage-only-->
 </main>
 <script>
 var BASE='../', HZ='__HAZARD__';
