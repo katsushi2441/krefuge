@@ -44,6 +44,8 @@ foreach (explode("\r\n", substr($res, 0, $hsize)) as $h) {
 $body = substr($res, $hsize);
 if (stripos((string)$status . implode('', headers_list()), 'text/html') !== false || strpos($body, '<!doctype html') === 0) {
     $tag = '<script>(function(){var s=document.createElement("script");s.src="https://kurage.exbridge.jp/simpletrack.php?url="+encodeURIComponent(location.href)+"&ref="+encodeURIComponent(document.referrer);s.async=true;document.head.appendChild(s)})();</script>';
+    // 再販パートナー募集の枠（中身は kurage_web/partner-bar.js。kurage.exbridge.jp 以外では何も出さない）
+    $tag .= '<script src="https://kurage.exbridge.jp/partner-bar.js" defer></script>';
     $body = str_replace('</head>', $tag . '</head>', $body);
 }
 echo $body;
