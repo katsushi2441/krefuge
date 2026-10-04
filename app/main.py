@@ -272,6 +272,7 @@ def check(request: Request, q: str = "", hazard: str = "", lat: float | None = N
                 "not_used": "市の指定避難所の開設状況レイヤは2024-10-29以降更新されておらず（2026-09-08の警戒レベル5発令中も全件未開設）、更新されていない値で「未開設」と出すのは危険なため本サービスでは表示しません。"}
     return JSONResponse({
         "query": q, "resolved": g["label"], "lat": g["lat"], "lon": g["lon"],
+        "share_area": _share_area(g["label"]),
         "nagoya_live": live,
         "elevation": elev,
         "hazard": hazard,
@@ -459,6 +460,10 @@ function run(){
          o+='<span class="tag'+(t===d.hazard_label?' on':'')+'">'+esc(t)+'</span>';});
        o+='</div></div>';
      });
+     if(d.share_area){var A=d.share_area,t='【'+A.name+'】住所から、近くの避難所まで徒歩何分かを調べました\\n'+A.name+'の指定緊急避難場所は '+A.shelters+'か所。洪水・地震・津波など、災害の種類で使える場所が違います\\n自分の住所で確かめられます';
+       var u=location.origin+location.pathname.replace(/\\/(map\\/|area\\/.*)?$/,'/')+A.path+'?ref=x-share-krefuge';
+       var x='https://x.com/intent/post?'+new URLSearchParams({text:t,url:u,hashtags:'避難所,'+A.name}).toString();
+       o+='<p style="margin:12px 0 4px"><a href="'+x+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#0f1419;color:#fff;text-decoration:none;font-weight:800;font-size:14px;border-radius:999px;padding:8px 16px"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M18.9 2H22l-6.8 7.8L23 22h-6.2l-4.8-6.3L6.4 22H3.3l7.3-8.3L1 2h6.3l4.4 5.8L18.9 2Zm-1.1 18h1.7L6.3 3.9H4.5L17.8 20Z"/></svg>'+esc(A.name)+'の避難所をXで共有</a><br><span style="font-size:12.5px;color:#666">住所・近くの避難所の名前は投稿に入りません</span></p>';}
      if(d.elevation){
        o+='<div class="meta"><strong>この地点の海抜（標高）: '+d.elevation.m+'m</strong>'
          +(d.elevation.source?'　<span style="font-weight:400">測定: '+esc(d.elevation.source)+'（国土地理院）</span>':'')
@@ -1017,6 +1022,24 @@ def _terms_block():
             '<p class="src">自治体のページは法令の用語で書かれているので、'
             'ふだんの言い方で検索すると見つからないことがあります。'
             'このページはどちらの言い方でも同じ答えを返します。</p></section>')
+
+
+def _share_area(label: str):
+    """住所 → 共有に使う地域（市区町村・政令市は区まで）。住所そのものは返さない"""
+    label = (label or "").replace(" ", "")
+    for lst in WARDS.values():
+        for d in lst:
+            if label.startswith(d["pref"] + d["city"] + d["ward"]):
+                return {"name": d["city"] + d["ward"], "path": f"area/{d['city_slug']}/{d['ward_slug']}", "shelters": d["shelters"]}
+    best = None
+    for code, d in MUNI.items():
+        full = d["pref"] + d["muni"]
+        if label.startswith(full) and (best is None or len(full) > len(best[1])):
+            best = (code, full, d)
+    if best:
+        code, _, d = best
+        return {"name": d["muni"], "path": "area/" + SLUG_BY_CODE.get(code, code), "shelters": d["shelters"]}
+    return None
 
 
 @app.get("/area/pref/{pref_code}", response_class=HTMLResponse)
