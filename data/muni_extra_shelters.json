@@ -1,0 +1,28 @@
+[
+ {
+  "muni_code": "13210",
+  "name": "貫井南町三楽集会所",
+  "address": "東京都小金井市貫井南町3-6-18",
+  "lat": 35.699463,
+  "lon": 139.494904,
+  "hazards": ["landslid"],
+  "kind": "避難所（土砂災害）",
+  "source": "小金井市 市報こがねい 2024年3月1日号「一時避難場所および避難所」",
+  "source_url": "https://www.city.koganei.lg.jp/shisei/461/530/kohokotyo/r6/20240301.files/20240301_010.pdf",
+  "address_source": "小金井市「市民活動のための便利帳」2026年5月版（集会施設一覧）",
+  "added": "2026-10-12"
+ },
+ {
+  "muni_code": "13210",
+  "name": "東町友愛会館",
+  "address": "東京都小金井市東町4-10-2",
+  "lat": 35.69442,
+  "lon": 139.523697,
+  "hazards": ["landslid"],
+  "kind": "避難所（土砂災害）",
+  "source": "小金井市 市報こがねい 2024年3月1日号「一時避難場所および避難所」",
+  "source_url": "https://www.city.koganei.lg.jp/shisei/461/530/kohokotyo/r6/20240301.files/20240301_010.pdf",
+  "address_source": "小金井市「市民活動のための便利帳」2026年5月版（集会施設一覧）",
+  "added": "2026-10-12"
+ }
+]

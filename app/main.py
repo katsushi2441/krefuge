@@ -53,6 +53,32 @@ HAZARDS = [
 ]
 HAZARD_KEYS = {k for k, _, _ in HAZARDS}
 
+# 市区町村が自分で発表しているのに、国土地理院の指定緊急避難場所データに入っていない避難先。
+# 例: 小金井市は国のデータでは27か所すべてが地震・大規模火事の指定で、土砂災害の指定が0件。
+# 一方で市報は2つの集会所を「土砂災害」の避難所としている（2026-10-12）。
+# 国のデータには混ぜず、出典つきの「市の発表」として別に持ち、画面でも書き分ける。
+EXTRA_PATH = os.path.join(ROOT, "data", "muni_extra_shelters.json")
+try:
+    EXTRA = json.load(open(EXTRA_PATH, encoding="utf-8"))
+except (OSError, ValueError):
+    EXTRA = []
+EXTRA_NOTE = "市の発表（国土地理院のデータには未掲載）"
+
+
+def _extra_near(lat, lon, hazard, radius_m=4000):
+    """市の発表の避難先のうち、近くにあって、その災害で使えるもの。"""
+    out = []
+    for e in EXTRA:
+        if hazard and hazard not in e["hazards"]:
+            continue
+        if haversine(lat, lon, e["lat"], e["lon"]) <= radius_m:
+            d = {k: 0 for k in HAZARD_KEYS}
+            d.update({k: 1 for k in e["hazards"]})
+            d.update({"name": e["name"], "address": e["address"], "lat": e["lat"], "lon": e["lon"],
+                      "muni": "", "extra": e})
+            out.append(d)
+    return out
+
 app = FastAPI(title="Kurage 避難所マップ")
 from app import distmode, kbousai_link  # noqa: E402  配布先で KURAGE_PUBLIC_ORIGIN を設定したときだけ働く
 distmode.install(app)
@@ -236,6 +262,7 @@ def check(request: Request, q: str = "", hazard: str = "", lat: float | None = N
 
     cur = conn().cursor()
     rows, _ = nearby(cur, g["lat"], g["lon"], hazard)
+    rows = [dict(r) for r in rows] + _extra_near(g["lat"], g["lon"], hazard)
     if not rows:
         return JSONResponse({
             "query": q, "resolved": g["label"], "hazard": hazard,
@@ -244,7 +271,7 @@ def check(request: Request, q: str = "", hazard: str = "", lat: float | None = N
 
     timed, mode = walk_times(g["lat"], g["lon"], rows)
     timed.sort(key=lambda t: t[1])
-    vintage, muni = vintage_for(cur, rows[0]["address"])
+    vintage, muni = vintage_for(cur, next((r["address"] for r in rows if not r.get("extra")), rows[0]["address"]))
     years, stale = staleness(vintage) if vintage else (None, False)
 
     out = []
@@ -255,6 +282,7 @@ def check(request: Request, q: str = "", hazard: str = "", lat: float | None = N
             "walk_minutes": max(1, round(sec / 60)),
             "distance_m": round(dist),
             "hazards": [label for k, label, _ in HAZARDS if r[k]],
+            **({"origin": EXTRA_NOTE, "origin_source": r["extra"]["source"]} if r.get("extra") else {}),
         })
     elev = elevation(g["lat"], g["lon"])
     live = None
@@ -282,7 +310,8 @@ def check(request: Request, q: str = "", hazard: str = "", lat: float | None = N
                       else "直線距離×徒歩80m/分（道路網エンジン未応答のため代替）",
         "data_vintage": vintage, "vintage_scope": muni or "全国データの取得時点",
         "data_age_years": years, "stale": stale,
-        "source": "国土地理院「指定緊急避難場所データ」",
+        "source": "国土地理院「指定緊急避難場所データ」"
+                  + ("。「市の発表」と付いたものは市区町村の広報によるもので、国のデータには入っていません" if any(s.get("origin") for s in out) else ""),
         "license": "CC BY 4.0",
         "notes": [
             "本サービスの判定は参考情報です。公的な証明ではありません。",
@@ -458,7 +487,8 @@ function run(){
         +'<div class="ad">'+esc(s.address)+'（約'+s.distance_m+'m）</div><div class="tags">';
        s.hazards.forEach(function(t){
          o+='<span class="tag'+(t===d.hazard_label?' on':'')+'">'+esc(t)+'</span>';});
-       o+='</div></div>';
+       if(s.origin){o+='<span class="tag" style="background:#fff4d6;color:#7a5600">'+esc(s.origin)+'</span>';}
+       o+='</div>'+(s.origin_source?'<div class="ad">出典: '+esc(s.origin_source)+'</div>':'')+'</div>';
      });
      if(d.share_area){var A=d.share_area,t='【'+A.name+'】住所から、近くの避難所まで徒歩何分かを調べました\\n'+A.name+'の指定緊急避難場所は '+A.shelters+'か所。洪水・地震・津波など、災害の種類で使える場所が違います\\n自分の住所で確かめられます';
        var u=location.origin+location.pathname.replace(/\\/(map\\/|area\\/.*)?$/,'/')+A.path+'?ref=x-share-krefuge';
@@ -704,6 +734,17 @@ def shelters_geojson(bbox: str = "", hazard: str = "", limit: int = 1500):
             "properties": {"name": r["name"] or "", "address": r["address"] or "",
                            "muni": r["muni"] or "", "hazards": "・".join(ok) or "（記載なし）"},
         })
+    for e in EXTRA:
+        if hazard in HAZARD_KEYS and hazard not in e["hazards"]:
+            continue
+        if minlat <= e["lat"] <= maxlat and minlon <= e["lon"] <= maxlon:
+            ok = [label for k, label, _ in HAZARDS if k in e["hazards"]]
+            feats.append({
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [e["lon"], e["lat"]]},
+                "properties": {"name": e["name"], "address": e["address"], "muni": "",
+                               "hazards": "・".join(ok) + "／" + EXTRA_NOTE},
+            })
     return {"type": "FeatureCollection", "features": feats, "truncated": len(feats) >= limit}
 
 
@@ -1183,6 +1224,18 @@ def area(slug: str):
         vint = ('<p class="src">このデータの%sぶんは %s に最初に公開され、%s に更新されています。'
                 '国土地理院が自治体から受け取って公開している値です。</p>'
                 % (city, d.get("first_published") or "—", d["last_updated"]))
+    extra = [e for e in EXTRA if e["muni_code"] == d["muni_code"]]
+    extra_html = ""
+    if extra:
+        extra_html = ('<section class="doc"><h2>%sが発表している避難先（国のデータには未掲載）</h2>'
+                      '<p>次の避難先は、%sが広報で示しているものですが、国土地理院の指定緊急避難場所のデータには入っていません。'
+                      '多くの防災アプリや地図サービスはこの国のデータを使っているため、そこでは見つからないことがあります。'
+                      '当社の避難所マップでは、出典を付けて「市の発表」として載せています（上の件数には含めていません）。</p>'
+                      '<div class="mwrap"><table class="mtbl"><tr><th>施設名</th><th>住所</th><th>区分</th></tr>%s</table></div>'
+                      '<p class="src">出典: %s（住所: %s）。開設の有無は、そのときの市の発表で確かめてください。</p></section>'
+                      % (city, city, "".join("<tr><td>%s</td><td>%s</td><td>%s</td></tr>"
+                                             % (_esc(e["name"]), _esc(e["address"]), _esc(e["kind"])) for e in extra),
+                         _esc(extra[0]["source"]), _esc(extra[0]["address_source"])))
     # 政令市は区ページを持っている（名古屋の1,750件は市の1ページでは探しにくい）
     wslug = SLUG_BY_CODE.get(d["muni_code"], d["muni_code"])
     wlist = WARDS.get(wslug, [])
@@ -1218,6 +1271,7 @@ def area(slug: str):
               '<p class="src">同じ施設でも、地震では使えて洪水では使えないことがあります。'
               '数が少ない種別ほど、その災害のときに行ける場所が限られます。</p>%s%s</section>'
               % (city, cards or '<p class="src">災害種別の指定がデータにありません。</p>', vint, ex)
+            + extra_html
             + ward_html
             + _official_block(d["muni_code"], full, ("洪水", "津波", "土砂災害"))
             + _howto_block(full)
